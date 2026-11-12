@@ -54,7 +54,7 @@ public class ProductUnitTests : IClassFixture<WebApplicationFactory<Program>>
         var client = _factory.CreateClient();
         await client.PostAsJsonAsync("/api/products", new Product
         {
-            Name = "Ecran 27 pouces",
+            Name = "Souris sans fil",
             Price = 250.00m
         });
 
