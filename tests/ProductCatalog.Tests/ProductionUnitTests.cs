@@ -4,6 +4,7 @@ using System.Net.Http.Json;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using ProductCatalog.Api.Data;
 using ProductCatalog.Api.Models;
 
@@ -16,19 +17,19 @@ public class ProductUnitTests : IClassFixture<WebApplicationFactory<Program>>
     public ProductUnitTests(WebApplicationFactory<Program> factory)
     {
         var databaseName = $"UnitTestingDb_{Guid.NewGuid()}";
+
         _factory = factory.WithWebHostBuilder(builder =>
         {
             builder.ConfigureServices(services =>
             {
-                var descriptor = services.SingleOrDefault(
-                    service => service.ServiceType == typeof(DbContextOptions<AppDbContext>));
-                if (descriptor is not null)
-                {
-                    services.Remove(descriptor);
-                }
+                // Remove the original SQL Server configuration
+                services.RemoveAll<DbContextOptions<AppDbContext>>();
 
+                // Register a fresh InMemory database
                 services.AddDbContext<AppDbContext>(options =>
-                    options.UseInMemoryDatabase(databaseName));
+                {
+                    options.UseInMemoryDatabase(databaseName);
+                });
             });
         });
     }
@@ -36,13 +37,25 @@ public class ProductUnitTests : IClassFixture<WebApplicationFactory<Program>>
     [Fact]
     public async Task AddProduct_ReturnsCreated_WhenProductIsValid()
     {
+        // Arrange
         var client = _factory.CreateClient();
-        var newProduct = new Product { Name = "Clavier Mecanique", Price = 89.50m };
 
-        var response = await client.PostAsJsonAsync("/api/products", newProduct);
+        var product = new Product
+        {
+            Name = "Clavier Mecanique",
+            Price = 89.50m
+        };
 
+        // Act
+        var response = await client.PostAsJsonAsync(
+            "/api/products", product);
+
+        // Assert
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
-        var createdProduct = await response.Content.ReadFromJsonAsync<Product>();
+
+        var createdProduct =
+            await response.Content.ReadFromJsonAsync<Product>();
+
         Assert.NotNull(createdProduct);
         Assert.Equal("Clavier Mecanique", createdProduct.Name);
         Assert.Equal(89.50m, createdProduct.Price);
@@ -51,19 +64,40 @@ public class ProductUnitTests : IClassFixture<WebApplicationFactory<Program>>
     [Fact]
     public async Task GetAllProducts_ReturnsOkAndProductList()
     {
+        // Arrange
         var client = _factory.CreateClient();
-        await client.PostAsJsonAsync("/api/products", new Product
+
+        var product = new Product
         {
-            Name = "Souris sans fil",
+            Name = "Ecran 27 pouces",
             Price = 250.00m
-        });
+        };
 
-        var response = await client.GetAsync("/api/products");
+        // Act: Add product
+        var postResponse = await client.PostAsJsonAsync(
+            "/api/products", product);
 
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        var products = await response.Content.ReadFromJsonAsync<List<Product>>();
+        Assert.Equal(HttpStatusCode.Created, postResponse.StatusCode);
+
+        var createdProduct =
+            await postResponse.Content.ReadFromJsonAsync<Product>();
+
+        Assert.NotNull(createdProduct);
+
+        // Act: Get all products
+        var getResponse = await client.GetAsync("/api/products");
+
+        // Assert
+        Assert.Equal(HttpStatusCode.OK, getResponse.StatusCode);
+
+        var products =
+            await getResponse.Content.ReadFromJsonAsync<List<Product>>();
+
         Assert.NotNull(products);
-        Assert.NotEmpty(products);
-        Assert.Contains(products, product => product.Name == "Ecran 27 pouces");
+
+        Assert.Contains(products, p =>
+            p.Id == createdProduct.Id &&
+            p.Name == "Ecran 27 pouces" &&
+            p.Price == 250.00m);
     }
 }
