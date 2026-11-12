@@ -21,12 +21,12 @@ uses: actions/setup-dotnet@v4
 with:
 dotnet-version: '10.0.x' # A Adapter selon votre .csproj
 # 3. Restauration des dépendances NuGet de la solution
-- name: Restore dependencies
-run: dotnet restore src/ProductCatalog.Api/ProductCatalog.Api.csproj
+      - name: Restore dependencies
+        run: dotnet restore src/ProductCatalog.Api/ProductCatalog.Api.csproj
 # 4. Compilation de la solution en mode Release sans re-restaurer
 - name: Build solution
 run: dotnet build src/ProductCatalog.Api/ProductCatalog.Api.csproj --
-configuration Release --no-restore
+        run: dotnet build src/ProductCatalog.Api/ProductCatalog.Api.csproj --configuration Release --no-restore
 - name: Run Unit Tests
 run: >
 dotnet test tests/ProductCatalog.Tests/ProductCatalog.Tests.csproj
